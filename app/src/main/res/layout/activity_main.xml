@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="32dp"
+    android:gravity="center"
+    android:background="#FFFFFF">
+
+    <!-- Espacio para tu Logo (IMG) -->
+    <ImageView
+        android:id="@+id/logoApp"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_marginBottom="16dp"
+        android:src="@android:drawable/ic_menu_camera" /> <!-- Ícono temporal -->
+
+    <!-- Nombre de la App -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PPU - WEATHER"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#000000"
+        android:layout_marginBottom="32dp"/>
+
+    <!-- Campo de Correo -->
+    <EditText
+        android:id="@+id/etCorreo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Correo electrónico"
+        android:inputType="textEmailAddress"
+        android:layout_marginBottom="16dp"
+        android:padding="12dp"
+        android:background="#E0E0E0"/>
+
+    <!-- Campo de Contraseña -->
+    <EditText
+        android:id="@+id/etPassword"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Contraseña"
+        android:inputType="textPassword"
+        android:layout_marginBottom="24dp"
+        android:padding="12dp"
+        android:background="#E0E0E0"/>
+
+    <!-- Botón Iniciar Sesión -->
+    <Button
+        android:id="@+id/btnIniciar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="INICIAR SESIÓN"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Botón Iniciar con Google -->
+    <Button
+        android:id="@+id/btnGoogle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="INICIAR CON GOOGLE"
+        android:backgroundTint="#DB4437"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Botón Registrarse -->
+    <Button
+        android:id="@+id/btnRegistrar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="REGISTRARSE"
+        style="?android:attr/buttonBarButtonStyle"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Botón Invitado -->
+    <Button
+        android:id="@+id/btnInvitado"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ENTRAR COMO INVITADO"
+        style="?android:attr/borderlessButtonStyle"
+        android:background="#E0E0E0" />
+
+</LinearLayout>

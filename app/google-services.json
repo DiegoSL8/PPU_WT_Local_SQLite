@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "885180473336",
+    "project_id": "ppu-wt",
+    "storage_bucket": "ppu-wt.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:885180473336:android:075ffcec7ac278468b800d",
+        "android_client_info": {
+          "package_name": "com.example.ppu_wt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfUyR_u80F1uhl6rQHEZMb-uEKEk1-CQo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
