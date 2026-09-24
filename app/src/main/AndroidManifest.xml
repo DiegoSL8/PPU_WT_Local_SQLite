@@ -5,8 +5,9 @@
     <!-- Permiso para conectarse a Internet (API del Clima, Firebase y Mapas) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Permisos para obtener la ubicación del usuario mediante GPS -->
+    <!-- Permiso para usar el GPS del celular -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Permiso adicional recomendado para ubicaciones más rápidas por Wi-Fi/Antenas -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
 

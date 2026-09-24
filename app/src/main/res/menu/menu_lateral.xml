@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_favoritos"
+        android:icon="@android:drawable/btn_star"
+        android:title="Mis Favoritos" />
+    <item
+        android:id="@+id/nav_modo_oscuro"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:title="Modo Oscuro (Próximamente)" />
+    <item
+        android:id="@+id/nav_cerrar_sesion"
+        android:icon="@android:drawable/ic_lock_power_off"
+        android:title="Cerrar Sesión" />
+</menu>

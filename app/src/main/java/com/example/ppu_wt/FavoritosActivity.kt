@@ -1,22 +1,39 @@
 package com.example.ppu_wt
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.Button
+import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.ListView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+
+data class MiLugar(
+    val id: String,
+    val nombre: String,
+    val lat: Double,
+    val lon: Double
+)
 
 class FavoritosActivity : AppCompatActivity() {
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private lateinit var listViewFavoritos: ListView // Lista temporal para mostrar los datos
+    private lateinit var listViewFavoritos: ListView
+    private val listaLugares = mutableListOf<MiLugar>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,50 +46,109 @@ class FavoritosActivity : AppCompatActivity() {
             insets
         }
 
-        val btnVolver = findViewById<Button>(R.id.btnVolver)
+        val btnVolver = findViewById<FloatingActionButton>(R.id.btnVolver)
         btnVolver.setOnClickListener { finish() }
 
-        // Aquí deberías tener un ListView o LinearLayout en tu activity_favoritos.xml
-        // Por ahora, asumiremos que tienes un ListView con el id "listaFavoritos"
-        // Si no lo tienes, la app no se caerá, pero te avisará
-        try {
-            listViewFavoritos = findViewById(R.id.listaFavoritos)
-            cargarFavoritosDesdeFirebase()
-        } catch (e: Exception) {
-            Toast.makeText(this, "Falta agregar un ListView en el diseño XML", Toast.LENGTH_LONG).show()
-        }
+        listViewFavoritos = findViewById(R.id.listaFavoritos)
+        cargarFavoritosDesdeFirebase()
+
+        // Eliminamos el setOnItemClickListener de aquí porque el Adaptador se hará cargo
     }
 
     private fun cargarFavoritosDesdeFirebase() {
         val usuarioId = auth.currentUser?.uid
         if (usuarioId == null) {
-            Toast.makeText(this, "Inicia sesión para ver tus favoritos", Toast.LENGTH_SHORT).show()
+            finish()
             return
         }
 
-        // Descargamos la lista desde Firestore
         db.collection("usuarios").document(usuarioId).collection("favoritos")
             .get()
             .addOnSuccessListener { documentos ->
-                val nombresLugares = mutableListOf<String>()
+                listaLugares.clear()
 
                 for (documento in documentos) {
-                    // Leemos el nombre que le pusiste al pin
+                    val id = documento.id
                     val nombre = documento.getString("nombre") ?: "Sin nombre"
-                    nombresLugares.add(nombre)
+                    val lat = documento.getDouble("latitud") ?: 0.0
+                    val lon = documento.getDouble("longitud") ?: 0.0
+
+                    listaLugares.add(MiLugar(id, nombre, lat, lon))
                 }
 
-                // Si la lista está vacía
-                if (nombresLugares.isEmpty()) {
-                    nombresLugares.add("Aún no tienes lugares favoritos")
+                if (listaLugares.isEmpty()) {
+                    Toast.makeText(this, "Aún no tienes favoritos", Toast.LENGTH_SHORT).show()
                 }
 
-                // Metemos los nombres en la vista de lista de Android
-                val adaptador = ArrayAdapter(this, android.R.layout.simple_list_item_1, nombresLugares)
+                val adaptador = FavoritosAdapter(this, listaLugares)
                 listViewFavoritos.adapter = adaptador
             }
             .addOnFailureListener {
-                Toast.makeText(this, "Error al cargar favoritos", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Error al cargar la lista", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    // =====================================================================
+    // ADAPTADOR: AQUÍ REPARAMOS EL CLIC PARA VIAJAR AL MAPA
+    // =====================================================================
+    inner class FavoritosAdapter(context: Context, private val lugares: List<MiLugar>) :
+        ArrayAdapter<MiLugar>(context, 0, lugares) {
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_favorito, parent, false)
+            val lugar = lugares[position]
+
+            val tvNombre = view.findViewById<TextView>(R.id.tvNombreLugar)
+            val btnCompartir = view.findViewById<ImageButton>(R.id.btnCompartir)
+            val btnEliminar = view.findViewById<ImageButton>(R.id.btnEliminar)
+
+            // Atrapamos el contenedor principal de la fila
+            val contenedorClickeable = view.findViewById<LinearLayout>(R.id.contenedorUbicacion)
+
+            tvNombre.text = lugar.nombre
+
+            // 1. VIAJAR AL MAPA (Solución al Bug de clic)
+            contenedorClickeable.setOnClickListener {
+                val intent = Intent(context, HomeActivity::class.java)
+                intent.putExtra("viajar_lat", lugar.lat)
+                intent.putExtra("viajar_lon", lugar.lon)
+                intent.putExtra("viajar_nombre", lugar.nombre)
+                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                context.startActivity(intent)
+            }
+
+            // 2. COMPARTIR
+            btnCompartir.setOnClickListener {
+                val urlMapa = "https://www.google.com/maps/search/?api=1&query=${lugar.lat},${lugar.lon}"
+                val mensaje = "¡Mira mi lugar guardado en PPU Weather!\n📍 ${lugar.nombre}\n$urlMapa"
+
+                val shareIntent = Intent(Intent.ACTION_SEND)
+                shareIntent.type = "text/plain"
+                shareIntent.putExtra(Intent.EXTRA_TEXT, mensaje)
+                context.startActivity(Intent.createChooser(shareIntent, "Compartir ubicación vía:"))
+            }
+
+            // 3. ELIMINAR
+            btnEliminar.setOnClickListener {
+                val usuarioId = auth.currentUser?.uid ?: return@setOnClickListener
+
+                AlertDialog.Builder(context)
+                    .setTitle("Eliminar Favorito")
+                    .setMessage("¿Estás seguro de borrar '${lugar.nombre}'?")
+                    .setPositiveButton("Eliminar") { _, _ ->
+                        db.collection("usuarios").document(usuarioId)
+                            .collection("favoritos").document(lugar.id)
+                            .delete()
+                            .addOnSuccessListener {
+                                Toast.makeText(context, "Lugar eliminado", Toast.LENGTH_SHORT).show()
+                                cargarFavoritosDesdeFirebase()
+                            }
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
+            }
+
+            return view
+        }
     }
 }

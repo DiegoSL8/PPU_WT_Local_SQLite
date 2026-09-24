@@ -31,12 +31,12 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        // --- ENLAZAR VISTAS (Asegúrate de que estos ID coincidan con tu activity_main.xml) ---
-        val etCorreo = findViewById<EditText>(R.id.etCorreo)
-        val etContrasena = findViewById<EditText>(R.id.etPassword) // Reemplaza password_et por tu ID si es diferente
-        val btnLogin = findViewById<Button>(R.id.btnIniciar)
-        val btnRegistro = findViewById<Button>(R.id.btnRegistrar)
-        val btnInvitado = findViewById<Button>(R.id.btnInvitado) // El que arreglamos antes
+        // --- ENLAZAR VISTAS --
+        val etCorreo = findViewById<EditText>(R.id.email_et)
+        val etContrasena = findViewById<EditText>(R.id.password_et)
+        val btnLogin = findViewById<Button>(R.id.login_btn)
+        val btnRegistro = findViewById<Button>(R.id.register_btn)
+        val btnInvitado = findViewById<Button>(R.id.btnInvitado)
 
         // --- 1. LÓGICA DEL BOTÓN REGISTRO ---
         btnRegistro.setOnClickListener {
