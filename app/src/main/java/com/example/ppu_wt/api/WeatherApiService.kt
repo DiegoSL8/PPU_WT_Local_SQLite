@@ -1,5 +1,6 @@
-package com.example.ppu_wt
+package com.example.ppu_wt.api
 
+import com.example.ppu_wt.model.ClimaResponse
 import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Query

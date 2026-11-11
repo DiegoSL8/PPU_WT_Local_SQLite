@@ -1,8 +1,8 @@
-package com.example.ppu_wt
+package com.example.ppu_wt.ui
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Geocoder
@@ -11,9 +11,9 @@ import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -24,6 +24,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.ppu_wt.model.ClimaResponse
+import com.example.ppu_wt.model.LugarFavoritoSql
+import com.example.ppu_wt.data.LugaresRepository
+import com.example.ppu_wt.R
+import com.example.ppu_wt.api.WeatherApiService
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -34,8 +39,6 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -45,6 +48,9 @@ import java.util.Locale
 
 class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapClickListener {
 
+    // =========================================================================
+    // 1. VARIABLES GLOBALES (Estado de la UI y Servicios)
+    // =========================================================================
     private lateinit var mapa: GoogleMap
     private var marcadorActual: Marker? = null
     private var ubicacionSeleccionada: LatLng? = null
@@ -59,22 +65,34 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
     private lateinit var tvUvExpandido: TextView
     private lateinit var tvAptoBanio: TextView
 
-    private val db = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+    private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var repositorio: LugaresRepository
+    private var idUsuarioActual: String = ""
 
+    // =========================================================================
+    // 2. CICLO DE VIDA (Punto de entrada)
+    // =========================================================================
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_home)
 
+        // Inicialización de herramientas de datos y ubicación
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        repositorio = LugaresRepository(this)
+        sharedPreferences = getSharedPreferences("sesion_ppu_wt", MODE_PRIVATE)
+        idUsuarioActual = sharedPreferences.getString("usuario_id", "") ?: ""
 
+        // Configuración modular de la vista
         configurarInterfaz()
         prepararMapa()
         configurarBuscador()
         configurarBotonesMapa()
     }
 
+    // =========================================================================
+    // 3. CONFIGURACIÓN DE INTERFAZ Y NAVEGACIÓN
+    // =========================================================================
     private fun configurarInterfaz() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.mapaFondo)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -82,41 +100,53 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
             insets
         }
 
+        // Enlace de vistas del clima
         panelLateral = findViewById(R.id.panelLateral)
         vistaExpandida = findViewById(R.id.vistaExpandida)
-
         tvTempCompacta = findViewById(R.id.tvTempCompacta)
         tvVientoExpandido = findViewById(R.id.tvVientoExpandido)
         tvUvExpandido = findViewById(R.id.tvUvExpandido)
         tvAptoBanio = findViewById(R.id.tvAptoBanio)
 
-        val btnIrFavoritos = findViewById<Button>(R.id.btnIrFavoritos)
-        val btnCerrarSesion = findViewById<Button>(R.id.btnCerrarSesion)
-        val btnGuardarPin = findViewById<FloatingActionButton>(R.id.btnGuardarPin)
-
-        // 1. Expansión del panel
+        // Expansión del panel lateral
         panelLateral.setOnClickListener {
             vistaExpandida.visibility = if (vistaExpandida.visibility == View.GONE) View.VISIBLE else View.GONE
         }
 
-        // 2. Cerrar Sesión seguro
-        btnCerrarSesion.setOnClickListener {
-            auth.signOut()
-            startActivity(Intent(this, MainActivity::class.java))
-            finish()
-        }
+        // Menú desplegable superior (Top Bar)
+        val btnOpciones = findViewById<android.widget.ImageButton>(R.id.btnOpciones)
+        btnOpciones.setOnClickListener { view ->
+            val popup = PopupMenu(this, view)
+            popup.menuInflater.inflate(R.menu.menu_opciones, popup.menu)
 
-        // 3. Protección de Favoritos para Invitados
-        btnIrFavoritos.setOnClickListener {
-            if (auth.currentUser == null) {
-                Toast.makeText(this, "Debes registrarte para ver tus favoritos", Toast.LENGTH_SHORT).show()
-            } else {
-                startActivity(Intent(this, FavoritosActivity::class.java))
+            popup.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    R.id.opcion_favoritos -> {
+                        if (idUsuarioActual.isEmpty()) {
+                            Toast.makeText(this, "Modo invitado: regístrate para usar favoritos", Toast.LENGTH_SHORT).show()
+                        } else {
+                            startActivity(Intent(this, FavoritosActivity::class.java))
+                        }
+                        true
+                    }
+                    R.id.opcion_salir -> {
+                        sharedPreferences.edit().clear().apply()
+                        val intent = Intent(this, MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finish()
+                        true
+                    }
+                    else -> false
+                }
             }
+            popup.show()
         }
 
-        // 4. Guardar Pin (Con reglas de negocio)
-        btnGuardarPin.setOnClickListener { guardarLugarFavorito() }
+        // Botón guardar PIN en el mapa
+        findViewById<FloatingActionButton>(R.id.btnGuardarPin).setOnClickListener {
+            guardarLugarFavorito()
+        }
     }
 
     private fun configurarBuscador() {
@@ -124,7 +154,7 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
         etBuscar.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE) {
                 buscarUbicacionEnMapa(etBuscar.text.toString())
-                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(etBuscar.windowToken, 0)
                 true
             } else false
@@ -137,6 +167,9 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
         findViewById<FloatingActionButton>(R.id.btnZoomOut).setOnClickListener { mapa.animateCamera(CameraUpdateFactory.zoomOut()) }
     }
 
+    // =========================================================================
+    // 4. LÓGICA DEL MAPA Y UBICACIÓN (GPS)
+    // =========================================================================
     private fun prepararMapa() {
         val mapFragment = supportFragmentManager.findFragmentById(R.id.mapaFondo) as SupportMapFragment
         mapFragment.getMapAsync(this)
@@ -146,31 +179,44 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
         mapa = googleMap
         mapa.setOnMapClickListener(this)
 
-        // 1. Revisamos si el usuario acaba de llegar desde la lista de Favoritos
         val viajarLat = intent.getDoubleExtra("viajar_lat", 0.0)
         val viajarLon = intent.getDoubleExtra("viajar_lon", 0.0)
         val viajarNombre = intent.getStringExtra("viajar_nombre")
 
         if (viajarLat != 0.0 && viajarLon != 0.0) {
-            // Llegamos desde favoritos: Viajamos directo a ese punto
             val coords = LatLng(viajarLat, viajarLon)
             colocarMarcador(coords, viajarNombre ?: "Favorito")
             mapa.animateCamera(CameraUpdateFactory.newLatLngZoom(coords, 14f))
             ubicacionSeleccionada = coords
             obtenerClima(viajarLat, viajarLon)
 
-            // Habilitar el GPS sin forzar el centrado
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 mapa.isMyLocationEnabled = true
             }
         } else {
-            // 2. Flujo normal al abrir la app: Centrar en el GPS del usuario
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 mapa.isMyLocationEnabled = true
                 centrarEnUbicacionUsuario()
             } else {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        val viajarLat = intent.getDoubleExtra("viajar_lat", 0.0)
+        val viajarLon = intent.getDoubleExtra("viajar_lon", 0.0)
+        val viajarNombre = intent.getStringExtra("viajar_nombre")
+
+        if (viajarLat != 0.0 && viajarLon != 0.0) {
+            val coords = LatLng(viajarLat, viajarLon)
+            colocarMarcador(coords, viajarNombre ?: "Favorito")
+            mapa.animateCamera(CameraUpdateFactory.newLatLngZoom(coords, 14f))
+            ubicacionSeleccionada = coords
+            obtenerClima(viajarLat, viajarLon)
         }
     }
 
@@ -196,6 +242,7 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
         marcadorActual = mapa.addMarker(MarkerOptions().position(coordenadas).title(titulo))
     }
 
+    @Suppress("DEPRECATION")
     private fun buscarUbicacionEnMapa(nombre: String) {
         if (nombre.trim().isEmpty()) return
         try {
@@ -212,6 +259,9 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
         }
     }
 
+    // =========================================================================
+    // 5. LÓGICA DE API Y BASE DE DATOS (Interacciones de red y local)
+    // =========================================================================
     private fun obtenerClima(lat: Double, lon: Double) {
         val retrofit = Retrofit.Builder().baseUrl("https://api.open-meteo.com/").addConverterFactory(GsonConverterFactory.create()).build()
         retrofit.create(WeatherApiService::class.java).obtenerClimaActual(lat, lon).enqueue(object : Callback<ClimaResponse> {
@@ -234,8 +284,7 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
     }
 
     private fun guardarLugarFavorito() {
-        val usuarioId = auth.currentUser?.uid
-        if (usuarioId == null) {
+        if (idUsuarioActual.isEmpty()) {
             Toast.makeText(this, "El modo invitado no puede guardar pines", Toast.LENGTH_SHORT).show()
             return
         }
@@ -251,35 +300,37 @@ class HomeActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMapCli
             .setPositiveButton("Guardar") { dialog, _ ->
                 val nombreIngresado = input.text.toString().trim()
 
-                // Validación Estricta: Si está vacío, alerta y no guarda
                 if (nombreIngresado.isEmpty()) {
                     Toast.makeText(this, "Error: Debes ponerle un nombre para guardar", Toast.LENGTH_LONG).show()
                 } else {
-                    val nuevo = LugarFavorito("", nombreIngresado, ubicacionSeleccionada!!.latitude, ubicacionSeleccionada!!.longitude)
-                    db.collection("usuarios").document(usuarioId).collection("favoritos").add(nuevo)
-                        .addOnSuccessListener { Toast.makeText(this, "¡Lugar guardado!", Toast.LENGTH_SHORT).show() }
+                    // AQUÍ USAMOS EL REPOSITORIO LOCAL (SQLite)
+                    val yaExiste = repositorio.existeFavorito(
+                        idUsuarioActual,
+                        nombreIngresado,
+                        ubicacionSeleccionada!!.latitude,
+                        ubicacionSeleccionada!!.longitude
+                    )
+
+                    if (yaExiste) {
+                        Toast.makeText(this, "⚠️ Ya tienes este lugar o nombre guardado", Toast.LENGTH_LONG).show()
+                    } else {
+                        val idGenerado = repositorio.insertarFavorito(
+                            idUsuarioActual,
+                            nombreIngresado,
+                            ubicacionSeleccionada!!.latitude,
+                            ubicacionSeleccionada!!.longitude
+                        )
+
+                        if (idGenerado != -1L) {
+                            Toast.makeText(this, "¡Lugar guardado exitosamente!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(this, "Error al guardar en base de datos", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 }
                 dialog.dismiss()
             }
             .setNegativeButton("Cancelar") { dialog, _ -> dialog.cancel() }
             .show()
     }
-    // Se ejecuta si HomeActivity ya estaba abierta de fondo y volvemos a ella
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-
-        val viajarLat = intent.getDoubleExtra("viajar_lat", 0.0)
-        val viajarLon = intent.getDoubleExtra("viajar_lon", 0.0)
-        val viajarNombre = intent.getStringExtra("viajar_nombre")
-
-        if (viajarLat != 0.0 && viajarLon != 0.0) {
-            val coords = LatLng(viajarLat, viajarLon)
-            colocarMarcador(coords, viajarNombre ?: "Favorito")
-            mapa.animateCamera(CameraUpdateFactory.newLatLngZoom(coords, 14f))
-            ubicacionSeleccionada = coords
-            obtenerClima(viajarLat, viajarLon)
-        }
-    }
-
 }

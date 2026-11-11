@@ -9,10 +9,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.example.ppu_wt" />
-                  <option name="mobileSdkAppId" value="1:885180473336:android:075ffcec7ac278468b800d" />
-                  <option name="projectId" value="ppu-wt" />
-                  <option name="projectNumber" value="885180473336" />
+                  <option name="appId" value="PLACEHOLDER" />
+                  <option name="mobileSdkAppId" value="" />
+                  <option name="projectId" value="" />
+                  <option name="projectNumber" value="" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

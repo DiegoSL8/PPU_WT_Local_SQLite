@@ -1,4 +1,4 @@
-package com.example.ppu_wt
+package com.example.ppu_wt.model
 
 import com.google.gson.annotations.SerializedName
 
